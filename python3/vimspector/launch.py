@@ -19,7 +19,7 @@ import json
 import glob
 import shlex
 
-from vimspector import install, installer, utils
+from vimspector import install, installer, utils, gadgets
 from vimspector.vendor.json_minify import minify
 
 _logger = logging.getLogger( __name__ )
@@ -33,7 +33,7 @@ USER_CHOICES = {}
 
 
 
-def GetAdapters( current_file, filetypes ):
+def GetAdapters( current_file ):
   adapters = {}
   for gadget_config_file in PathsToAllGadgetConfigs( VIMSPECTOR_HOME,
                                                      current_file ):
@@ -121,11 +121,11 @@ def SelectConfiguration( launch_variables, configurations ):
 
 
 def SelectAdapter( api_prefix,
+                   debug_session,
                    configuration_name,
                    configuration,
                    adapters,
-                   launch_variables,
-                   debug_session ):
+                   launch_variables ):
   adapter =  configuration.get( 'adapter' )
 
   if isinstance( adapter, str ):
@@ -147,7 +147,7 @@ def SelectAdapter( api_prefix,
             False, # Don't leave open
             *shlex.split( response ),
             then = debug_session.Start( new_launch_variables ) )
-          return
+          return None
         elif response is None:
           return None
 
