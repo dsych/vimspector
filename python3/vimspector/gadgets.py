@@ -50,6 +50,40 @@ GADGETS[ 'vscode-cpptools' ] = {
         }
       },
     },
+    'templates': [
+      {
+        'description': 'gdb/lldb local debugging with vscode-cpptools',
+        'filetypes': ( 'c', 'cpp', 'objc', 'rust' ),
+        'configurations': [
+          {
+            'description': 'Launch local process',
+            'launch_configuration': {
+              'adapter': 'vscode-cpptools',
+              'configuration': {
+                'request': 'launch',
+                'program': '${Binary:${fileBasenameNoExtension\\}}',
+                'args': [ '*${CommandLineArguments}' ],
+                'cwd': '${WorkingDir:${fileDirname\\}}',
+                'externalConsole#json': '${UseExternalConsole:true\nfalse}',
+                'stopAtEntry#json': '${StopAtEntry:true\nfalse}',
+                'MIMode': '${Debugger:gdb\nlldb}',
+              }
+            }
+          },
+          {
+            'description': 'Attach to local process by PID',
+            'launch_configuration': {
+              'adapter': 'vscode-cpptools',
+              'configuration': {
+                'request': 'attach',
+                'program': '${Binary:${fileBasenameNoExtension\\}}',
+                'MIMode': '${Debugger:gdb\nlldb}',
+              }
+            }
+          }
+        ]
+      }
+    ]
   },
   'linux': {
     'file_name': 'cpptools-linux.vsix',
@@ -465,6 +499,42 @@ GADGETS[ 'CodeLLDB' ] = {
   },
   'all': {
     'version': 'v1.5.3',
+    'templates': [
+      {
+        'description': 'LLDB local debugging with CodeLLDB',
+        'filetypes': ( 'c', 'cpp', 'objc', 'rust' ),
+        'configurations': [
+          {
+            'description': 'Launch local process',
+            'launch_configuration': {
+              'adapter': 'CodeLLDB',
+              'configuration': {
+                'request': 'launch',
+                'program': '${Binary:${fileBasenameNoExtension\\}}',
+                'args': [ '*${CommandLineArguments}' ],
+                'cwd': '${WorkingDir:${fileDirname\\}}',
+                'terminal': '${Console:none\nintegrated\nexternal}',
+                'stoOntEntry#json': '${StopOnEntry:true\nfalse}',
+                'expressions': '${ExpressionType:native\nsimple\npython}'
+              }
+            }
+          },
+          {
+            'description': 'Attach to local process by PID',
+            'launch_configuration': {
+              'adapter': 'vscode-cpptools',
+              'configuration': {
+                'request': 'attach',
+                'program': '${Binary:${fileBasenameNoExtension\\}}',
+                'pid#json': "${pid}",
+                'stoOntEntry#json': '${StopOnEntry:true\nfalse}',
+                'expressions': '${ExpressionType:native\nsimple\npython}'
+              }
+            }
+          }
+        ]
+      }
+    ]
   },
   'macos': {
     'file_name': 'codelldb-x86_64-darwin.vsix',

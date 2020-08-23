@@ -99,20 +99,26 @@ class DebugSession( object ):
                                                                    current_file,
                                                                    filetypes )
 
-    if not configurations:
-      utils.UserMessage( 'Unable to find any debug configurations. '
-                         'You need to tell vimspector how to launch your '
-                         'application.' )
-      return
-
     if launch_config_file:
       self._workspace_root = os.path.dirname( launch_config_file )
     else:
       self._workspace_root = os.path.dirname( current_file )
 
-    configuration_name, configuration = launch.SelectConfiguration(
-      launch_variables,
-      configurations )
+
+    if not configurations:
+      configuration_name, configuration = launch.SuggestConfiguration(
+        filetypes )
+    else:
+      configuration_name, configuration = launch.SelectConfiguration(
+        launch_variables,
+        configurations )
+
+    if not configuration:
+      utils.UserMessage( 'Unable to find any debug configurations. '
+                         'You need to tell vimspector how to launch your '
+                         'application.' )
+      return
+
     adapter = launch.SelectAdapter( self._api_prefix,
                                     self,
                                     configuration_name,

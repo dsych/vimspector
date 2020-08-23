@@ -444,21 +444,12 @@ def InstallGagdet( name: str,
     spec = {}
     spec.update( gadget.get( 'all', {} ) )
     spec.update( gadget.get( install.GetOS(), {} ) )
-    try:
-      # We don't need to store os-specific adapters in the manifest
-      spec.pop( 'adapters' )
-    except KeyError:
-      pass
 
     def save_adapters():
-      for d in [ spec, gadgets ]:
-        for adapter_name, adapter in d.get( 'adapters', {} ).items():
-          base = {
-            'filetypes': gadget.get( 'filetypes', [ gadget[ 'language' ] ] ),
-            'description': gadget.get( 'description', adapter_name ),
-          }
-          base.update( adapter )
-          all_adapters[ adapter_name ] = adapter
+      # allow per-os adapter overrides. v already did that for us...
+      all_adapters.update( spec.get( 'adapters', {} ) )
+      # add any other "all" adapters
+      all_adapters.update( gadget.get( 'adapters', {} ) )
 
     if 'download' in gadget:
       if 'file_name' not in spec:

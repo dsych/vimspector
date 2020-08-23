@@ -120,6 +120,49 @@ def SelectConfiguration( launch_variables, configurations ):
   return configuration_name, configuration
 
 
+def SuggestConfiguration( filetypes ):
+  nothing = None, None
+  templates = []
+  filetypes = set( filetypes )
+
+  for gadget_name, gadget in gadgets.GADGETS.items():
+    spec = {}
+    spec.update( gadget.get( 'all', {} ) )
+    spec.update( gadget.get( install.GetOS(), {} ) )
+
+    for template in spec.get( 'templates', [] ):
+      if filetypes.intersection( template.get( 'filetypes', set() ) ):
+        templates.append( template )
+
+  if not templates:
+    return nothing
+
+  template_idx = utils.SelectFromList(
+    'Which template?',
+    [ t[ 'description' ] for t in templates ],
+    ret = 'index' )
+
+  if template_idx is None:
+    return nothing
+
+  template = templates[ template_idx ]
+
+  config_index = utils.SelectFromList(
+    'Which configuration?',
+    [ c[ 'description' ] for c in template[ 'configurations' ] ],
+    ret = 'index' )
+
+  if config_index is None:
+    return nothing
+
+  configuration = template[ 'configurations' ][ config_index ]
+  configuration_name = utils.AskForInput( 'Give the config a name: ',
+                                          configuration[ 'description' ] )
+
+
+  return configuration_name, configuration[ 'launch_configuration' ]
+
+
 def SelectAdapter( api_prefix,
                    debug_session,
                    configuration_name,
