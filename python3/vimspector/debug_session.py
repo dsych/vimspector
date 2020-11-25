@@ -93,7 +93,8 @@ class DebugSession( object ):
 
       with open( launch_config_file, 'r' ) as f:
         database = json.loads( minify( f.read() ) )
-        configurations.update( database.get( 'configurations' or {} ) )
+        if database:
+          configurations.update( database.get( 'configurations' or {} ) )
 
     return launch_config_file, configurations
 
