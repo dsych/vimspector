@@ -90,28 +90,77 @@ class ProjectBreakpoints( object ):
 
     # FIXME: If the adapter type changes, we should probably forget this ?
 
+  def Reset( self ):
+    self.ClearBreakpoints()
+
+  def RemoveBreakpoint( self, bp ):
+    for _, breakpoint_list in self._line_breakpoints.items():
+      found_index = None
+      for index, breakpoint in enumerate( breakpoint_list ):
+        if 'id' in breakpoint and breakpoint[ 'id' ] == bp[ 'id' ]:
+          found_index = index
+          break
+
+      if found_index is not None:
+        del breakpoint_list[ found_index ]
+        self._ShowBreakpoints()
+        return
+
+  def AddBreakpoints( self, source, breakpoints ):
+    print(breakpoints)
+    for breakpoint in breakpoints:
+      source = breakpoint.get( 'source' ) or source
+      if not source or 'path' not in source:
+        self._logger.warn( 'missing source/path in breakpoint {0}'.format(
+          json.dumps( breakpoint ) ) )
+        continue
+
+      breakpoint[ 'source' ] = source
+      self._line_breakpoints[ source[ 'path' ] ].append( breakpoint )
+
+    self._logger.debug( 'Breakpoints at this point: {0}'.format(
+      json.dumps( self._line_breakpoints, indent = 2 ) ) )
+
+    self._ShowBreakpoints()
+
+  def UpdateBreakpoint( self, bp ):
+    if 'id' not in bp:
+      self.AddBreakpoint( bp )
+      return
+
+    for _, breakpoint_list in self._line_breakpoints.items():
+      for index, breakpoint in enumerate( breakpoint_list ):
+        if 'id' in breakpoint and breakpoint[ 'id' ] == bp[ 'id' ]:
+          breakpoint_list[ index ] = bp
+          self._ShowBreakpoints()
+          return
+
+    # Not found. Assume new
+    self.AddBreakpoint( bp )
+
+
+  def AddBreakpoint( self, breakpoint ):
+    self.AddBreakpoints( None, [ breakpoint ] )
+
 
   def BreakpointsAsQuickFix( self ):
     # FIXME: Handling of breakpoints is a mess, split between _codeView and this
     # object. This makes no sense and should be centralised so that we don't
     # have this duplication and bug factory.
     qf = []
-    if self._connection and self._codeView:
-      qf = self._codeView.BreakpointsAsQuickFix()
-    else:
-      for file_name, breakpoints in self._line_breakpoints.items():
-        for bp in breakpoints:
-          self._SignToLine( file_name, bp )
-          qf.append( {
-            'filename': file_name,
-            'lnum': bp[ 'line' ],
-            'col': 1,
-            'type': 'L',
-            'valid': 1 if bp[ 'state' ] == 'ENABLED' else 0,
-            'text': "Line breakpoint - {}: {}".format(
-              bp[ 'state' ],
-              json.dumps( bp[ 'options' ] ) )
-          } )
+    for file_name, breakpoints in self._line_breakpoints.items():
+      for bp in breakpoints:
+        self._SignToLine( file_name, bp )
+        qf.append( {
+          'filename': file_name,
+          'lnum': bp[ 'line' ],
+          'col': 1,
+          'type': 'L',
+          'valid': 1 if bp[ 'state' ] == 'ENABLED' else 0,
+          'text': "Line breakpoint - {}: {}".format(
+            bp[ 'state' ],
+            json.dumps( bp[ 'options' ] ) )
+        } )
       # I think this shows that the qf list is not right for this.
       for bp in self._func_breakpoints:
         qf.append( {
@@ -127,7 +176,7 @@ class ProjectBreakpoints( object ):
     return qf
 
 
-  def ClearBreakpoints( self ):
+  def ClearBreakpoints( self, shouldUpdateUI = True ):
     # These are the user-entered breakpoints.
     for file_name, breakpoints in self._line_breakpoints.items():
       for bp in breakpoints:
@@ -139,7 +188,8 @@ class ProjectBreakpoints( object ):
     self._func_breakpoints = []
     self._exception_breakpoints = None
 
-    self.UpdateUI()
+    if shouldUpdateUI:
+      self.UpdateUI()
 
   def _FindLineBreakpoint( self, file_name, line ):
     file_name = os.path.abspath( file_name )
@@ -292,10 +342,8 @@ class ProjectBreakpoints( object ):
 
 
   def SendBreakpoints( self, doneHandler = None ):
-    assert self._breakpoints_handler is not None
-
     # Clear any existing breakpoints prior to sending new ones
-    self._breakpoints_handler.ClearBreakpoints()
+    self.ClearBreakpoints( False )
 
     awaiting = 0
 
@@ -314,7 +362,7 @@ class ProjectBreakpoints( object ):
 
     def response_handler( source, msg, temp_idxs = [] ):
       if msg:
-        self._breakpoints_handler.AddBreakpoints( source, msg )
+        self.AddBreakpoints( source, msg )
 
         breakpoints = ( msg.get( 'body' ) or {} ).get( 'breakpoints' ) or []
         self._UpdateTemporaryBreakpoints( breakpoints, temp_idxs )
