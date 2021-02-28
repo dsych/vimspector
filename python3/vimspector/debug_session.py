@@ -308,12 +308,12 @@ class DebugSession( object ):
           self.codeView = codeView
 
         def ClearBreakpoints( self ):
-          self.codeView.ClearBreakpoints()
+          self._breakpoints.ClearBreakpoints()
 
         def AddBreakpoints( self, source, message ):
           if 'body' not in message:
             return
-          self.codeView.AddBreakpoints( source,
+          self._breakpoints.AddBreakpoints( source,
                                         message[ 'body' ][ 'breakpoints' ] )
 
       self._breakpoints.SetBreakpointsHandler( Handler( self._codeView ) )
@@ -412,6 +412,7 @@ class DebugSession( object ):
       self._variablesView.Reset()
       self._outputView.Reset()
       self._codeView.Reset()
+      self._breakpoints.Reset()
       vim.command( 'tabclose!' )
       vim.command( 'doautocmd <nomodeline> User VimspectorDebugEnded' )
       self._stackTraceView = None
@@ -645,10 +646,10 @@ class DebugSession( object ):
     return items
 
   def RefreshSigns( self, file_name ):
-    if self._connection:
-      self._codeView.Refresh( file_name )
-    else:
-      self._breakpoints.Refresh( file_name )
+    #  if self._connection:
+      #  self._codeView.Refresh( file_name )
+    #  else:
+    self._breakpoints.Refresh( file_name )
 
 
   def _SetUpUI( self ):
@@ -1146,7 +1147,7 @@ class DebugSession( object ):
       else:
         self._OnInitializeComplete()
 
-    self._codeView.ClearBreakpoints()
+    self._breakpoints.ClearRealBreakpoints()
     self._breakpoints.SetConfiguredBreakpoints(
       self._configuration.get( 'breakpoints', {} ) )
     self._breakpoints.SendBreakpoints( onBreakpointsDone )
@@ -1159,11 +1160,11 @@ class DebugSession( object ):
     reason = message[ 'body' ][ 'reason' ]
     bp = message[ 'body' ][ 'breakpoint' ]
     if reason == 'changed':
-      self._codeView.UpdateBreakpoint( bp )
+      self._breakpoints.UpdateRealBreakpoint( bp )
     elif reason == 'new':
-      self._codeView.AddBreakpoint( bp )
+      self._breakpoints.AddRealBreakpoint( bp )
     elif reason == 'removed':
-      self._codeView.RemoveBreakpoint( bp )
+      self._breakpoints.RemoveRealBreakpoint( bp )
     else:
       utils.UserMessage(
         'Unrecognised breakpoint event (undocumented): {0}'.format( reason ),
@@ -1274,10 +1275,10 @@ class DebugSession( object ):
     self._stackTraceView.OnStopped( event )
 
   def ListBreakpoints( self ):
-    if self._connection:
-      qf = self._codeView.BreakpointsAsQuickFix()
-    else:
-      qf = self._breakpoints.BreakpointsAsQuickFix()
+    #  if self._connection:
+      #  qf = self._codeView.BreakpointsAsQuickFix()
+    #  else:
+    qf = self._breakpoints.BreakpointsAsQuickFix()
 
     vim.eval( 'setqflist( {} )'.format( json.dumps( qf ) ) )
     vim.command( 'copen' )
@@ -1307,7 +1308,7 @@ class DebugSession( object ):
 
   def ClearBreakpoints( self ):
     if self._connection:
-      self._codeView.ClearBreakpoints()
+      self._breakpoints.ClearRealBreakpoints()
 
     return self._breakpoints.ClearBreakpoints()
 

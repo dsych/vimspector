@@ -46,8 +46,10 @@ class ProjectBreakpoints( object ):
     self._exception_breakpoints = None
     self._configured_breakpoints = {}
 
+    self._real_breakpoints = defaultdict( list )
+
     # FIXME: Remove this. Remove breakpoints nonesense from code.py
-    self._breakpoints_handler = None
+    #  self._breakpoints_handler = None
     self._server_capabilities = {}
 
     self._next_sign_id = 1
@@ -80,7 +82,7 @@ class ProjectBreakpoints( object ):
 
 
   def ConnectionClosed( self ):
-    self._breakpoints_handler = None
+    #  self._breakpoints_handler = None
     self._server_capabilities = {}
     self._connection = None
     self.UpdateUI()
@@ -90,14 +92,109 @@ class ProjectBreakpoints( object ):
 
     # FIXME: If the adapter type changes, we should probably forget this ?
 
+  def AddRealBreakpoints( self, source, breakpoints ):
+    for breakpoint in breakpoints:
+      source = breakpoint.get( 'source' ) or source
+      if not source or 'path' not in source:
+        self._logger.warn( 'missing source/path in breakpoint {0}'.format(
+          json.dumps( breakpoint ) ) )
+        continue
+
+      breakpoint[ 'source' ] = source
+      self._real_breakpoints[ source[ 'path' ] ].append( breakpoint )
+
+    self._logger.debug( 'Breakpoints at this point: {0}'.format(
+      json.dumps( self._real_breakpoints, indent = 2 ) ) )
+
+    self._ShowBreakpoints()
+
+
+  def AddRealBreakpoint( self, breakpoint ):
+    self.AddRealBreakpoints( None, [ breakpoint ] )
+
+
+  def UpdateRealBreakpoint( self, bp ):
+    if 'id' not in bp:
+      self.AddRealBreakpoint( bp )
+      return
+
+    for _, breakpoint_list in self._real_breakpoints.items():
+      for index, breakpoint in enumerate( breakpoint_list ):
+        if 'id' in breakpoint and breakpoint[ 'id' ] == bp[ 'id' ]:
+          breakpoint_list[ index ] = bp
+          self._ShowBreakpoints()
+          return
+
+    # Not found. Assume new
+    self.AddRealBreakpoint( bp )
+
+
+  def RemoveRealBreakpoint( self, bp ):
+    for _, breakpoint_list in self._real_breakpoints.items():
+      found_index = None
+      for index, breakpoint in enumerate( breakpoint_list ):
+        if 'id' in breakpoint and breakpoint[ 'id' ] == bp[ 'id' ]:
+          found_index = index
+          break
+
+      if found_index is not None:
+        del breakpoint_list[ found_index ]
+        self._ShowBreakpoints()
+        return
+
+  def ClearRealBreakpoints( self ):
+    #  self._UndisplaySigns()
+    self._real_breakpoints = defaultdict( list )
+
+  #  def ShowRealBreakpoints( self ):
+    #  #  self._UndisplaySigns()
+#
+    #  for file_name, breakpoints in self._breakpoints.items():
+      #  for breakpoint in breakpoints:
+        #  if 'line' not in breakpoint:
+          #  continue
+#
+        #  sign_id = self._next_sign_id
+        #  self._next_sign_id += 1
+        #  self._signs[ 'breakpoints' ].append( sign_id )
+        #  if utils.BufferExists( file_name ):
+          #  signs.PlaceSign( sign_id,
+                           #  'VimspectorCode',
+                           #  'vimspectorBP' if breakpoint[ 'verified' ]
+                                          #  else 'vimspectorBPDisabled',
+                           #  file_name,
+                           #  breakpoint[ 'line' ] )
+#
+    # We need to also check if there's a breakpoint on this PC line and chnge
+    # the PC
+    #  self._DisplayPC()
+
+
+  def RealBreakpointsAsQuickFix( self ):
+    qf = []
+    for file_name, breakpoints in self._real_breakpoints.items():
+      for breakpoint in breakpoints:
+        qf.append( {
+            'filename': file_name,
+            'lnum': breakpoint.get( 'line', 1 ),
+            'col': 1,
+            'type': 'L',
+            'valid': 1 if breakpoint.get( 'verified' ) else 0,
+            'text': "Line breakpoint - {}".format(
+              'VERIFIED' if breakpoint.get( 'verified' ) else 'INVALID' )
+        } )
+    return qf
+
+  def Reset( self ):
+    self.ClearRealBreakpoints()
 
   def BreakpointsAsQuickFix( self ):
     # FIXME: Handling of breakpoints is a mess, split between _codeView and this
     # object. This makes no sense and should be centralised so that we don't
     # have this duplication and bug factory.
     qf = []
-    if self._connection and self._codeView:
-      qf = self._codeView.BreakpointsAsQuickFix()
+    if self._connection :
+      qf = self.RealBreakpointsAsQuickFix()
     else:
       for file_name, breakpoints in self._line_breakpoints.items():
         for bp in breakpoints:
@@ -292,10 +389,10 @@ class ProjectBreakpoints( object ):
 
 
   def SendBreakpoints( self, doneHandler = None ):
-    assert self._breakpoints_handler is not None
+    #  assert self._breakpoints_handler is not None
 
     # Clear any existing breakpoints prior to sending new ones
-    self._breakpoints_handler.ClearBreakpoints()
+    self.ClearRealBreakpoints()
 
     awaiting = 0
 
@@ -313,8 +410,8 @@ class ProjectBreakpoints( object ):
         doneHandler()
 
     def response_handler( source, msg, temp_idxs = [] ):
-      if msg:
-        self._breakpoints_handler.AddBreakpoints( source, msg )
+      if msg and 'body' in msg:
+        self.AddRealBreakpoints( source, msg[ 'body' ][ 'breakpoints' ] )
 
         breakpoints = ( msg.get( 'body' ) or {} ).get( 'breakpoints' ) or []
         self._UpdateTemporaryBreakpoints( breakpoints, temp_idxs )
